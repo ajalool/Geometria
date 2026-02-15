@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional - Selección de Precisión</title>
+    <title>Cristal Dimensional - Selección Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; touch-action: pan-y; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 15px; margin: 10px; border: 1px solid #444; }
         .math-panel { background: #151515; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4444; width: 90%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
         .inputs-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
@@ -28,7 +28,7 @@
             <input type="number" id="v3" class="prog-input" value="28">
             <input type="number" id="v4" class="prog-input" value="82">
         </div>
-        <p class="hint">PC: Clic normal | Celular: Mantén presionado <b>2 seg sin mover</b> para seleccionar fila</p>
+        <p class="hint">PC: Clic normal | Celular: Mantén presionado <b>2 seg sin mover</b> para iluminar y seleccionar</p>
         <div class="equation-display" id="equation-text">Analizando...</div>
     </div>
 
@@ -46,10 +46,9 @@
         let initialValueInput, maxValueInput, rowsInput;
         let lastFocusedInput = null;
         
-        // Variables para control de presión
+        // Variables de control de tiempo y movimiento
         let touchTimer;
-        let touchStartX, touchStartY;
-        let isLongPress = false;
+        let startX, startY;
         let isMobile = false;
 
         function setup() {
@@ -74,49 +73,54 @@
 
             let canvas = createCanvas(windowWidth - 50, 2000);
             canvas.parent('canvas-container');
+
+            // Listeners nativos para máxima precisión en móvil
+            let canvasElement = canvas.elt;
+            canvasElement.addEventListener('touchstart', handleTouchStart, {passive: false});
+            canvasElement.addEventListener('touchmove', handleTouchMove, {passive: false});
+            canvasElement.addEventListener('touchend', handleTouchEnd);
             
+            // Para PC sigue funcionando el clic normal
+            canvas.mousePressed(() => { if(!isMobile) executeSelection(); });
+
             noLoop();
             updateAll();
         }
 
-        // LÓGICA DE DETECCIÓN: Diferencia Clic/Scroll
-        function mousePressed() {
+        function handleTouchStart(e) {
             if (!lastFocusedInput) return;
-            
-            touchStartX = mouseX;
-            touchStartY = mouseY;
-            isLongPress = false;
+            let touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
 
-            if (isMobile) {
-                // Iniciar contador de 2 segundos para celular
-                touchTimer = setTimeout(() => {
-                    isLongPress = true;
-                    executeSelection();
-                }, 2000); 
-            } else {
-                // PC: selección instantánea
-                executeSelection();
+            // Iniciar temporizador de 2 segundos
+            touchTimer = setTimeout(() => {
+                executeSelection(touch.clientX, touch.clientY);
+                if(window.navigator.vibrate) window.navigator.vibrate(100); // Feedback táctil
+            }, 2000);
+        }
+
+        function handleTouchMove(e) {
+            let touch = e.touches[0];
+            let moveDist = dist(startX, startY, touch.clientX, touch.clientY);
+            // Si mueve el dedo más de 10px, es un SCROLL, cancelamos selección
+            if (moveDist > 10) {
+                clearTimeout(touchTimer);
             }
         }
 
-        function mouseDragged() {
-            // Si el dedo se mueve más de 10px, asumimos que es SCROLL
-            let distance = dist(touchStartX, touchStartY, mouseX, mouseY);
-            if (distance > 10) {
-                clearTimeout(touchTimer); // Cancela la selección
-            }
-        }
-
-        function mouseReleased() {
+        function handleTouchEnd() {
             clearTimeout(touchTimer);
         }
 
-        function executeSelection() {
+        function executeSelection(customX, customY) {
             let h = hexSize * 1.5;
-            let filaDetectada = Math.round((mouseY - 100) / h) + 1;
+            // Usar coordenadas de mouse (PC) o las capturadas (Móvil)
+            let yPos = customY ? (customY + window.scrollY - canvas.elt.offsetTop) : mouseY;
+            let filaDetectada = Math.round((yPos - 100) / h) + 1;
+            
             if (filaDetectada >= 1 && lastFocusedInput) {
                 lastFocusedInput.value = filaDetectada;
-                if(isMobile && window.navigator.vibrate) window.navigator.vibrate(70); // Vibración de éxito
                 updateAll();
             }
         }
@@ -163,7 +167,7 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // Dibujar líneas amarillas de selección
+            // ILUMINACIÓN AMARILLA (Línea de selección)
             let v_actuales = [
                 parseInt(document.getElementById('v1').value),
                 parseInt(document.getElementById('v2').value),
@@ -173,12 +177,12 @@
             v_actuales.forEach(f => {
                 if (!isNaN(f)) {
                     let ly = 100 + (f - 1) * h;
-                    stroke(255, 235, 59, 150); strokeWeight(3);
+                    stroke(255, 235, 59, 180); strokeWeight(4);
                     line(0, ly, width, ly);
                 }
             });
 
-            // Generar y dibujar cristal
+            // CRISTAL
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -189,24 +193,24 @@
                 }
                 allRows.push(rowVals);
             }
-            let lastRow = allRows[rows-1];
+            let lastRowData = allRows[rows-1];
             for (let r = 1; r < rows; r++) {
                 let nextRow = [];
-                for (let c = 0; c < lastRow.length - 1; c++) {
-                    let val = wrappedSum(lastRow[c] + lastRow[c+1], maxVal);
+                for (let c = 0; c < lastRowData.length - 1; c++) {
+                    let val = wrappedSum(lastRowData[c] + lastRowData[c+1], maxVal);
                     nextRow.push(val);
-                    drawHex(width/2 + (c - (lastRow.length-2)/2) * w, 100 + (rows - 1 + r) * h, val, hexSize);
+                    drawHex(width/2 + (c - (lastRowData.length-2)/2) * w, 100 + (rows - 1 + r) * h, val, hexSize);
                 }
-                lastRow = nextRow;
+                lastRowData = nextRow;
             }
 
-            // Guías Rojas
+            // GUÍAS ROJAS
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
                     stroke(255, 0, 0, 100); strokeWeight(1.5);
-                    line(80, ly, width-80, ly);
-                    noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 30, ly+4);
+                    line(100, ly, width-100, ly);
+                    noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 40, ly+4);
                 }
             }
         }
