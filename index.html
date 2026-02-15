@@ -2,49 +2,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional - Control Pro</title>
+    <title>Cristal Dimensional - Fix Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+        .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 8px; margin: 10px; border: 1px solid #444; flex-wrap: wrap; justify-content: center; }
+        .math-panel { background: #151515; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4444; width: 92%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
+        .inputs-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
         
-        .main-controls { 
-            background: #222; padding: 12px; border-radius: 8px; 
-            position: sticky; top: 10px; z-index: 100; 
-            display: flex; gap: 8px; margin: 10px; border: 1px solid #444; 
-            flex-wrap: wrap; justify-content: center;
-        }
-
-        .math-panel { 
-            background: #151515; padding: 15px; border-radius: 8px; 
-            margin-bottom: 20px; border: 1px solid #ff4444; width: 92%; 
-            display: flex; flex-direction: column; align-items: center; 
-            box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); 
-        }
-        
-        .inputs-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; }
-        
-        .input-wrapper { 
-            display: flex; align-items: center; background: #eee; 
-            border-radius: 4px; border: 2px solid transparent; 
-            overflow: hidden; margin: 2px;
-        }
+        .input-wrapper { display: flex; align-items: center; background: #eee; border-radius: 4px; border: 2px solid transparent; overflow: hidden; }
         .input-wrapper.active { border-color: #ffeb3b; box-shadow: 0 0 12px #ffeb3b; background: #fffde7; }
         
-        .num-display { 
-            width: 40px; height: 35px; color: #000; display: flex; 
-            align-items: center; justify-content: center; 
-            font-weight: bold; cursor: pointer; border-right: 1px solid #bbb;
-        }
-        .kb-trigger { 
-            padding: 0 8px; cursor: pointer; font-size: 14px; 
-            display: flex; align-items: center; height: 35px; background: #ddd;
-        }
+        .num-display { width: 45px; height: 35px; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border-right: 1px solid #bbb; }
+        .kb-trigger { padding: 0 10px; cursor: pointer; font-size: 16px; display: flex; align-items: center; height: 35px; background: #ddd; color: #000; }
         
         .hidden-input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
-
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.1em; margin-top: 10px; text-align: center; }
         #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.7em; color: #888; text-align: center; margin-top: 5px; line-height: 1.3; }
+        .hint { font-size: 0.75em; color: #888; text-align: center; margin-top: 5px; line-height: 1.3; }
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -63,7 +38,7 @@
         <input type="number" id="real-v3" class="hidden-input" oninput="syncManual('v3')">
         <input type="number" id="real-v4" class="hidden-input" oninput="syncManual('v4')">
 
-        <p class="hint">Toca un número para seleccionar en el cristal.<br>Mantén 1 seg sin mover para capturar. Usa ⌨️ para escribir.</p>
+        <p class="hint">1. Toca un número arriba | 2. Mantén 1 seg una fila para seleccionar.<br>Zoom y Scroll habilitados.</p>
         <div class="equation-display" id="equation-text">Analizando cristal...</div>
     </div>
 
@@ -76,8 +51,7 @@
         let initialValueInput, maxValueInput, rowsInput;
         let activeTargetId = null;
         let touchTimer;
-        let startX, startY;
-        let isMoving = false;
+        let touchStartX, touchStartY;
 
         function activateCapture(id) {
             document.querySelectorAll('.input-wrapper').forEach(w => w.classList.remove('active'));
@@ -115,37 +89,36 @@
             let canvas = createCanvas(windowWidth - 40, 1000);
             canvas.parent('canvas-container');
 
+            // --- GESTIÓN DE EVENTOS NATIVOS ---
             let el = canvas.elt;
-            // Listeners que NO bloquean el scroll (passive: true)
+            
+            // Mouse para PC
+            el.addEventListener('mousedown', (e) => {
+                if (activeTargetId && e.button === 0) executeSelection(e.offsetY);
+            });
+
+            // Touch para Móvil
             el.addEventListener('touchstart', (e) => {
                 if (!activeTargetId || e.touches.length > 1) return;
                 let t = e.touches[0];
-                startX = t.clientX; startY = t.clientY;
-                isMoving = false;
+                touchStartX = t.clientX;
+                touchStartY = t.clientY;
                 
                 touchTimer = setTimeout(() => {
-                    if (!isMoving) {
-                        let rect = el.getBoundingClientRect();
-                        executeSelection(t.clientY - rect.top);
-                        if(navigator.vibrate) navigator.vibrate(50);
-                    }
-                }, 1000); // 1 segundo exacto
+                    let rect = el.getBoundingClientRect();
+                    let y = t.clientY - rect.top;
+                    executeSelection(y);
+                    if(navigator.vibrate) navigator.vibrate(60);
+                }, 1000); // 1 segundo
             }, {passive: true});
 
             el.addEventListener('touchmove', (e) => {
                 let t = e.touches[0];
-                // Si el dedo se mueve más de 15px, es scroll, cancelar selección
-                if (dist(startX, startY, t.clientX, t.clientY) > 15) {
-                    isMoving = true;
-                    clearTimeout(touchTimer);
-                }
+                let d = dist(touchStartX, touchStartY, t.clientX, t.clientY);
+                if (d > 10) clearTimeout(touchTimer); // Es scroll, cancelar
             }, {passive: true});
 
             el.addEventListener('touchend', () => clearTimeout(touchTimer));
-            el.addEventListener('mousedown', (e) => { 
-                // En PC la selección es inmediata
-                if(activeTargetId && e.button === 0) executeSelection(e.offsetY); 
-            });
 
             updateAll();
         }
@@ -162,7 +135,8 @@
         function updateAll() {
             let rows = parseInt(rowsInput.value()) || 1;
             hexSize = rows > 60 ? (rows > 150 ? 5 : 8) : 15;
-            resizeCanvas(width, (rows * 2 * hexSize * 1.5) + 400);
+            let h = hexSize * 1.5;
+            resizeCanvas(width, (rows * 2 * h) + 400);
             analizarProgresion();
             redraw();
         }
@@ -191,7 +165,7 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // Líneas de selección amarillas
+            // Iluminar selección (Líneas amarillas)
             ['v1','v2','v3','v4'].forEach(id => {
                 let f = parseInt(document.querySelector(`#wrap-${id} .num-display`).innerText);
                 if(!isNaN(f)) {
@@ -200,6 +174,7 @@
                 }
             });
 
+            // Cristal
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -221,21 +196,23 @@
                 lastR = nextR;
             }
 
+            // Guías rojas
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
                     stroke(255, 0, 0, 100); strokeWeight(1.5);
-                    line(80, ly, width-80, ly);
-                    noStroke(); fill(255, 100, 100); text("Fila "+i, 30, ly+4);
+                    line(100, ly, width-100, ly);
+                    noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 40, ly+4);
                 }
             }
         }
 
         function drawHex(x, y, v, s) {
-            if (y < scrollY - 1000 || y > scrollY + windowHeight + 1000) return;
-            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40);
+            let m = 1200;
+            if (y < scrollY - m || y > scrollY + windowHeight + m) return;
+            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 30);
             beginShape();
-            for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a)*s, sin(a)*s); }
+            for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI / 2; vertex(cos(a)*s, sin(a)*s); }
             endShape(CLOSE);
             if (s > 7) { fill(v > 15 || [2,3,21].includes(v) ? 255 : 0); textAlign(CENTER, CENTER); textSize(s*0.65); text(v, 0, 0); }
             pop();
