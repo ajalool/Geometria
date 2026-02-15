@@ -3,29 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Laboratorio Rojo Sangre - vFinal</title>
+    <title>Cristal Dimensional Rojo Sangre - vFinal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #050505; color: white; overflow: hidden; touch-action: none; }
-        
         .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; pointer-events: none; }
         .controls-card { pointer-events: auto; background: rgba(30, 30, 30, 0.95); padding: 10px; border-bottom: 2px solid #ff4444; display: flex; flex-direction: column; align-items: center; gap: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.8); }
-        
-        /* Estilo de los inputs superiores */
         .top-inputs { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 12px; color: #ccc; }
-        .top-inputs div { display: flex; align-items: center; gap: 4px; }
         .top-inputs input { width: 50px; background: #111; border: 1px solid #555; color: white; padding: 3px; border-radius: 4px; text-align: center; }
-
         .inputs-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 5px; }
         .box-container { display: flex; flex-direction: column; align-items: center; background: #222; padding: 5px; border-radius: 6px; border: 2px solid #444; }
         .box-container.active { border-color: #ffeb3b; background: #332b00; box-shadow: 0 0 10px #ffeb3b; }
-        
         .val-btn { width: 45px; height: 30px; background: #eee; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 4px; font-size: 14px; }
         .mini-btn { width: 30px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 14px; background: #444; border-radius: 3px; cursor: pointer; border: 1px solid #555; margin-top: 4px; }
-
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.1em; text-align: center; margin-top: 5px; }
         .hint { font-size: 0.7em; color: #aaa; text-align: center; margin: 0; }
-        
         #p5-canvas { position: absolute; top: 0; left: 0; z-index: 1; }
     </style>
 </head>
@@ -38,7 +30,6 @@
                 <div>Máx: <input type="number" id="inp-max" value="21" oninput="updateSettings()"></div>
                 <div>Filas: <input type="number" id="inp-rows" value="40" oninput="updateSettings()"></div>
             </div>
-            
             <div class="inputs-row">
                 <div class="box-container" id="cont-v1"><div class="val-btn" id="num-v1">4</div><div style="display:flex;gap:2px;"><div class="mini-btn" onclick="setMode('v1','touch')">☝️</div><div class="mini-btn" onclick="setMode('v1','kb')">⌨️</div></div></div>
                 <div class="box-container" id="cont-v2"><div class="val-btn" id="num-v2">10</div><div style="display:flex;gap:2px;"><div class="mini-btn" onclick="setMode('v2','touch')">☝️</div><div class="mini-btn" onclick="setMode('v2','kb')">⌨️</div></div></div>
@@ -46,21 +37,16 @@
                 <div class="box-container" id="cont-v4"><div class="val-btn" id="num-v4">82</div><div style="display:flex;gap:2px;"><div class="mini-btn" onclick="setMode('v4','touch')">☝️</div><div class="mini-btn" onclick="setMode('v4','kb')">⌨️</div></div></div>
             </div>
             <div class="equation-display" id="equation-text">Analizando...</div>
-            <p class="hint">PC: Clic o Rueda | Celular: Arrastrar, Pellizcar y Mantener 1.5s</p>
+            <p class="hint">☝️ Activa y captura (PC: Clic / Móvil: 1s) | Pellizca o Rueda para Zoom</p>
         </div>
     </div>
 
     <script>
-        let scaleFactor = 1.0;
-        let offsetX = 0, offsetY = 0;
-        let hexBaseSize = 18;
-        let activeId = null;
-        
+        let scaleFactor = 1.0, offsetX = 0, offsetY = 0;
+        let hexBaseSize = 18, activeId = null;
         let valInicio = 1, valMax = 21, numRows = 40;
-
-        let pressTimer;
-        let isMoving = false;
-        let startX, startY;
+        let pressTimer, isMoving = false, startX, startY, lastDist = 0;
+        let isMobile = false;
 
         let colorMap = { 1: '#FFB6C1', 2: '#9370DB', 3: '#FF4500', 4: '#FFA500', 5: '#32CD32', 6: '#1E90FF', 7: '#ADFF2F', 8: '#DDA0DD', 9: '#FFFF00', 10: '#00FFFF', 11: '#FF69B4', 12: '#8B4513', 13: '#7FFFD4', 14: '#FFD700', 15: '#4B0082', 16: '#00FF7F', 17: '#F08080', 18: '#4682B4', 19: '#E6E6FA', 20: '#808000', 21: '#000080' };
 
@@ -84,30 +70,33 @@
         }
 
         function setup() {
+            isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             createCanvas(windowWidth, windowHeight).id('p5-canvas');
             pixelDensity(2);
-            offsetX = width / 2;
-            offsetY = 220;
+            offsetX = width / 2; offsetY = 350;
             updateSettings();
         }
 
         function draw() {
             background(10);
             
+            // Zoom Pellizco (Móvil)
+            if (touches.length === 2) {
+                let d = dist(touches[0].x, touches[0].y, touches[1].x, touches[1].y);
+                if (lastDist > 0) { scaleFactor = constrain(scaleFactor + (d - lastDist) * 0.01, 0.02, 5.0); }
+                lastDist = d;
+            } else { lastDist = 0; }
+
             push();
             translate(offsetX, offsetY);
             scale(scaleFactor);
 
-            let h = hexBaseSize * 1.5;
-            let w = Math.sqrt(3) * hexBaseSize;
+            let h = hexBaseSize * 1.5, w = Math.sqrt(3) * hexBaseSize;
 
-            // Líneas amarillas
+            // Líneas amarillas (fondo)
             ['v1','v2','v3','v4'].forEach(id => {
                 let f = parseInt(document.getElementById('num-' + id).innerText);
-                if(!isNaN(f)) {
-                    stroke(255, 235, 59, 150); strokeWeight(3 / scaleFactor);
-                    line(-width*10, (f-1)*h, width*10, (f-1)*h);
-                }
+                if(!isNaN(f)) { stroke(255, 235, 59, 150); strokeWeight(4 / scaleFactor); line(-width*10, (f-1)*h, width*10, (f-1)*h); }
             });
 
             // Cristal
@@ -116,78 +105,63 @@
                 let row = [];
                 for (let c = 0; c <= r; c++) {
                     let val = (r === 0 || c === 0 || c === r) ? valInicio : wrappedSum(grid[r-1][c-1] + grid[r-1][c], valMax);
-                    row.push(val);
-                    drawHex((c - r/2) * w, r * h, val);
+                    row.push(val); drawHex((c - r/2) * w, r * h, val);
                 }
                 grid.push(row);
             }
-            
             if (grid.length > 0) {
-                let lastR = grid[numRows-1];
+                let lastRowData = grid[numRows-1];
                 for (let r = 1; r < numRows; r++) {
                     let nextR = [];
-                    for (let c = 0; c < lastR.length - 1; c++) {
-                        let val = wrappedSum(lastR[c] + lastR[c+1], valMax);
-                        nextR.push(val);
-                        drawHex((c - (lastR.length-2)/2) * w, (numRows - 1 + r) * h, val);
+                    for (let c = 0; c < lastRowData.length - 1; c++) {
+                        let val = wrappedSum(lastRowData[c] + lastRowData[c+1], valMax);
+                        nextR.push(val); drawHex((c - (lastRowData.length-2)/2) * w, (numRows - 1 + r) * h, val);
                     }
-                    lastR = nextR;
+                    lastRowData = nextR;
+                }
+            }
+
+            // Guías Rojas (Capas Superiores)
+            for (let i = 1; i <= numRows * 2; i++) {
+                if (i === 1 || i % 10 === 0) {
+                    let ly = (i-1)*h;
+                    stroke(255, 0, 0, 180); strokeWeight(1.5 / scaleFactor);
+                    line(-width*5, ly, width*5, ly);
                 }
             }
             pop();
         }
 
         function drawHex(x, y, v) {
-            let screenX = x * scaleFactor + offsetX;
-            let screenY = y * scaleFactor + offsetY;
-            if (screenX < -100 || screenX > width + 100 || screenY < -100 || screenY > height + 100) return;
-
-            push(); translate(x, y);
-            fill(colorMap[v] || '#444'); stroke(0, 50); strokeWeight(1/scaleFactor);
-            beginShape();
-            for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a) * hexBaseSize, sin(a) * hexBaseSize); }
-            endShape(CLOSE);
-            if (hexBaseSize * scaleFactor > 7) {
-                fill(v > 15 || [2,3,21].includes(v) ? 255 : 0);
-                textAlign(CENTER, CENTER); textSize(hexBaseSize * 0.6); text(v, 0, 0);
-            }
+            let screenX = x * scaleFactor + offsetX, screenY = y * scaleFactor + offsetY;
+            if (screenX < -200 || screenX > width + 200 || screenY < -200 || screenY > height + 200) return;
+            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40); strokeWeight(1/scaleFactor);
+            beginShape(); for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a)*hexBaseSize, sin(a)*hexBaseSize); } endShape(CLOSE);
+            if (hexBaseSize * scaleFactor > 7) { fill(v > 15 || [2,3,21].includes(v) ? 255 : 0); textAlign(CENTER, CENTER); textSize(hexBaseSize * 0.6); text(v, 0, 0); }
             pop();
         }
 
-        // Navegación
-        function mouseDragged() {
-            offsetX += mouseX - pmouseX;
-            offsetY += mouseY - pmouseY;
-            isMoving = true;
-            clearTimeout(pressTimer);
+        function mouseDragged() { if (touches.length < 2) { offsetX += mouseX - pmouseX; offsetY += mouseY - pmouseY; isMoving = true; clearTimeout(pressTimer); } }
+        function mouseWheel(e) { scaleFactor = constrain(scaleFactor - e.delta * 0.001, 0.02, 5.0); return false; }
+
+        function mousePressed() {
+            if (!isMobile && activeId && mouseY > 0) { // PC Selection
+                processSelection(mouseY);
+            }
+            isMoving = false; startX = mouseX; startY = mouseY;
+            if (isMobile && activeId && touches.length === 1) {
+                pressTimer = setTimeout(() => { if (!isMoving && dist(startX, startY, mouseX, mouseY) < 10) processSelection(mouseY); }, 1000);
+            }
         }
 
-        function mouseWheel(event) {
-            let zoomSpeed = 0.001;
-            scaleFactor -= event.delta * zoomSpeed;
-            scaleFactor = constrain(scaleFactor, 0.02, 5.0);
-            return false;
-        }
-
-        // Selección 1.5s
-        function touchStarted() {
-            isMoving = false;
-            startX = mouseX; startY = mouseY;
-            if (activeId) {
-                pressTimer = setTimeout(() => {
-                    if (!isMoving && dist(startX, startY, mouseX, mouseY) < 10) {
-                        let h = hexBaseSize * 1.5;
-                        let worldY = (mouseY - offsetY) / scaleFactor;
-                        let fila = Math.round(worldY / h) + 1;
-                        if (fila >= 1) {
-                            document.getElementById('num-' + activeId).innerText = fila;
-                            updateMath();
-                            if(navigator.vibrate) navigator.vibrate(60);
-                            activeId = null;
-                            document.querySelectorAll('.box-container').forEach(c => c.classList.remove('active'));
-                        }
-                    }
-                }, 1500);
+        function processSelection(y) {
+            let h = hexBaseSize * 1.5;
+            let worldY = (y - offsetY) / scaleFactor;
+            let fila = Math.round(worldY / h) + 1;
+            if (fila >= 1) {
+                document.getElementById('num-' + activeId).innerText = fila;
+                updateMath(); if(navigator.vibrate) navigator.vibrate(60);
+                activeId = null; document.querySelectorAll('.box-container').forEach(c => c.classList.remove('active'));
             }
         }
 
@@ -196,11 +170,8 @@
             let res = document.getElementById('equation-text');
             if (v.length >= 2) {
                 let d1 = v[1]-v[0], d2 = v.length>2?v[2]-v[1]:d1, r = d1!==0?d2/d1:0;
-                if (r > 0 && r !== 1 && v.length >= 3) {
-                    res.innerText = `aₙ = ${r.toFixed(0)}ⁿ + ${(v[0]-(d1/(r-1))).toFixed(0)}`;
-                } else {
-                    res.innerText = `aₙ = ${d1}n + ${v[0]-d1}`;
-                }
+                if (r > 0 && r !== 1 && v.length >= 3) res.innerText = `aₙ = ${r.toFixed(0)}ⁿ + ${(v[0]-(d1/(r-1))).toFixed(0)}`;
+                else res.innerText = `aₙ = ${d1}n + ${v[0]-d1}`;
             }
         }
 
