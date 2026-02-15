@@ -2,38 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional Rojo Sangre - Control Táctil Total</title>
+    <title>Cristal Dimensional - Conexión Total</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 15px; margin: 10px; border: 1px solid #444; }
         .math-panel { background: #151515; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4444; width: 90%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
-        .inputs-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+        .inputs-row { display: flex; gap: 8px; align-items: center; justify-content: center; }
         
-        .input-group { position: relative; display: flex; align-items: center; background: #eee; border-radius: 4px; padding-right: 5px; }
-        input.prog-input { width: 55px; padding: 8px; border: none; text-align: center; font-weight: bold; background: transparent; color: #000; outline: none; }
-        .kb-icon { cursor: pointer; font-size: 12px; color: #666; padding: 2px; }
+        /* Contenedor del input */
+        .input-box { width: 60px; height: 40px; background: #eee; color: #000; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 2px solid transparent; }
+        .input-box.active { border-color: #ffeb3b; background: #fffde7; box-shadow: 0 0 15px #ffeb3b; }
         
-        input.prog-input:focus-within { background: #fffde7; border-radius: 4px; }
-        .active-input { box-shadow: 0 0 10px #ffeb3b; border: 2px solid #ffeb3b !important; }
-
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; margin-top: 10px; }
-        #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.75em; color: #888; margin-top: 5px; text-align: center; }
+        #canvas-container { width: 100%; display: flex; justify-content: center; touch-action: none; } /* touch-action none es clave */
+        .hint { font-size: 0.75em; color: #888; text-align: center; margin-top: 5px; }
     </style>
 </head>
-<body>
-
-    <div class="main-controls" id="ui-main"></div>
+<body oncontextmenu="return false;"> <div class="main-controls" id="ui-main"></div>
 
     <div class="math-panel">
         <div class="inputs-row">
-            <div class="input-group" id="group-v1"><input type="number" id="v1" class="prog-input" value="4" readonly><span class="kb-icon" onclick="enableKB('v1')">⌨️</span></div>
-            <div class="input-group" id="group-v2"><input type="number" id="v2" class="prog-input" value="10" readonly><span class="kb-icon" onclick="enableKB('v2')">⌨️</span></div>
-            <div class="input-group" id="group-v3"><input type="number" id="v3" class="prog-input" value="28" readonly><span class="kb-icon" onclick="enableKB('v3')">⌨️</span></div>
-            <div class="input-group" id="group-v4"><input type="number" id="v4" class="prog-input" value="82" readonly><span class="kb-icon" onclick="enableKB('v4')">⌨️</span></div>
+            <div id="box-v1" class="input-box" onclick="selectBox('v1')">4</div>
+            <div id="box-v2" class="input-box" onclick="selectBox('v2')">10</div>
+            <div id="box-v3" class="input-box" onclick="selectBox('v3')">28</div>
+            <div id="box-v4" class="input-box" onclick="selectBox('v4')">82</div>
         </div>
-        <p class="hint">1. Toca una casilla (amarillo) | 2. Mantén 1s una fila para capturarla.<br>Usa ⌨️ para escribir manualmente.</p>
+        <p class="hint">1. Toca un cuadro arriba (se pondrá amarillo) | 2. Deja el dedo 1s en una fila.</p>
         <div class="equation-display" id="equation-text">Analizando...</div>
     </div>
 
@@ -41,23 +36,21 @@
 
     <script>
         let hexSize = 15;
-        let colorMap = {
-            1: '#FFB6C1', 2: '#9370DB', 3: '#FF4500', 4: '#FFA500', 5: '#32CD32',
-            6: '#1E90FF', 7: '#ADFF2F', 8: '#DDA0DD', 9: '#FFFF00', 10: '#00FFFF',
-            11: '#FF69B4', 12: '#8B4513', 13: '#7FFFD4', 14: '#FFD700', 15: '#4B0082',
-            16: '#00FF7F', 17: '#F08080', 18: '#4682B4', 19: '#E6E6FA', 20: '#808000', 21: '#000080'
-        };
+        let colorMap = { 1: '#FFB6C1', 2: '#9370DB', 3: '#FF4500', 4: '#FFA500', 5: '#32CD32', 6: '#1E90FF', 7: '#ADFF2F', 8: '#DDA0DD', 9: '#FFFF00', 10: '#00FFFF', 11: '#FF69B4', 12: '#8B4513', 13: '#7FFFD4', 14: '#FFD700', 15: '#4B0082', 16: '#00FF7F', 17: '#F08080', 18: '#4682B4', 19: '#E6E6FA', 20: '#808000', 21: '#000080' };
 
         let initialValueInput, maxValueInput, rowsInput;
-        let lastFocusedInput = null;
-        let touchTimer;
+        let activeTarget = null;
+        let pressTimer;
         let startX, startY;
-        let isMobileDevice = false;
+
+        function selectBox(id) {
+            document.querySelectorAll('.input-box').forEach(b => b.classList.remove('active'));
+            document.getElementById('box-' + id).classList.add('active');
+            activeTarget = id;
+        }
 
         function setup() {
-            isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             pixelDensity(2);
-            
             let ui = select('#ui-main');
             createSpan("Inicio:").parent(ui);
             initialValueInput = createInput('1').parent(ui);
@@ -66,68 +59,53 @@
             createSpan("Filas:").parent(ui);
             rowsInput = createInput('40').parent(ui);
 
-            initialValueInput.input(updateAll);
-            maxValueInput.input(updateAll);
-            rowsInput.input(updateAll);
+            initialValueInput.input(() => updateAll());
+            maxValueInput.input(() => updateAll());
+            rowsInput.input(() => updateAll());
 
-            // Setup de selección tactil sin teclado
-            ['v1', 'v2', 'v3', 'v4'].forEach(id => {
-                let el = document.getElementById(id);
-                el.addEventListener('click', function() {
-                    // Quitar clase activa de todos
-                    document.querySelectorAll('.input-group').forEach(g => g.classList.remove('active-input'));
-                    // Activar este
-                    document.getElementById('group-' + id).classList.add('active-input');
-                    lastFocusedInput = el;
-                });
-            });
-
-            let canvas = createCanvas(windowWidth - 50, 1000);
+            let canvas = createCanvas(windowWidth - 40, 1000);
             canvas.parent('canvas-container');
 
-            let canvasElt = canvas.elt;
-            canvasElt.addEventListener('touchstart', handleTS, {passive: true});
-            canvasElt.addEventListener('touchmove', handleTM, {passive: true});
-            canvasElt.addEventListener('touchend', () => clearTimeout(touchTimer));
-            
-            noLoop();
+            // EVENTOS NATIVOS (Ignoran las limitaciones de p5.js)
+            let el = canvas.elt;
+            el.addEventListener('touchstart', startPress, {passive: false});
+            el.addEventListener('touchmove', movePress, {passive: false});
+            el.addEventListener('touchend', endPress);
+            el.addEventListener('mousedown', (e) => { if(activeTarget) executeSelection(e.offsetY); });
+
             updateAll();
         }
 
-        function enableKB(id) {
-            let el = document.getElementById(id);
-            el.readOnly = false;
-            el.focus();
-            el.addEventListener('blur', () => el.readOnly = true, {once: true});
-        }
-
-        function mousePressed() {
-            if (!isMobileDevice && lastFocusedInput && mouseY > 0) {
-                executeSelection(mouseX, mouseY);
-            }
-        }
-
-        function handleTS(e) {
-            if (!lastFocusedInput || e.touches.length > 1) return;
+        function startPress(e) {
+            if (!activeTarget) return;
             let t = e.touches[0];
             startX = t.clientX; startY = t.clientY;
-            touchTimer = setTimeout(() => {
+            
+            // Si el dedo se queda quieto 1 segundo
+            pressTimer = setTimeout(() => {
                 let rect = canvas.elt.getBoundingClientRect();
-                executeSelection(t.clientX - rect.left, t.clientY - rect.top);
-                if(window.navigator.vibrate) window.navigator.vibrate(50);
+                let yOnCanvas = t.clientY - rect.top;
+                executeSelection(yOnCanvas);
+                if(navigator.vibrate) navigator.vibrate(50);
             }, 1000);
         }
 
-        function handleTM(e) {
+        function movePress(e) {
             let t = e.touches[0];
-            if (dist(startX, startY, t.clientX, t.clientY) > 10) clearTimeout(touchTimer);
+            if (dist(startX, startY, t.clientX, t.clientY) > 10) {
+                clearTimeout(pressTimer); // Es un scroll, cancelar seleccion
+            }
         }
 
-        function executeSelection(x, y) {
+        function endPress() {
+            clearTimeout(pressTimer);
+        }
+
+        function executeSelection(y) {
             let h = hexSize * 1.5;
             let fila = Math.round((y - 100) / h) + 1;
-            if (fila >= 1 && lastFocusedInput) {
-                lastFocusedInput.value = fila;
+            if (fila >= 1 && activeTarget) {
+                document.getElementById('box-' + activeTarget).innerText = fila;
                 updateAll();
             }
         }
@@ -135,19 +113,17 @@
         function updateAll() {
             let rows = parseInt(rowsInput.value()) || 1;
             hexSize = rows > 60 ? (rows > 150 ? 5 : 8) : 15;
-            let h = hexSize * 1.5;
-            let totalHeight = (rows * 2 * h) + 400;
-            resizeCanvas(width, totalHeight);
+            resizeCanvas(width, (rows * 2 * hexSize * 1.5) + 400);
             analizarProgresion();
             redraw();
         }
 
         function analizarProgresion() {
             let v = [
-                parseFloat(document.getElementById('v1').value),
-                parseFloat(document.getElementById('v2').value),
-                parseFloat(document.getElementById('v3').value),
-                parseFloat(document.getElementById('v4').value)
+                parseFloat(document.getElementById('box-v1').innerText),
+                parseFloat(document.getElementById('box-v2').innerText),
+                parseFloat(document.getElementById('box-v3').innerText),
+                parseFloat(document.getElementById('box-v4').innerText)
             ].filter(n => !isNaN(n));
 
             let res = document.getElementById('equation-text');
@@ -162,8 +138,7 @@
                 res.innerText = `Ecuación: aₙ = ${r.toFixed(0)}ⁿ + ${c.toFixed(0)}`;
             } else {
                 let d = v[1] - v[0];
-                let c = v[0] - d;
-                res.innerText = `Ecuación Lineal: aₙ = ${d}n ${c >= 0 ? '+ ':'- '}${Math.abs(c)}`;
+                res.innerText = `Ecuación Lineal: aₙ = ${d}n + ${v[0]-d}`;
             }
         }
 
@@ -174,21 +149,16 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            let v_actuales = [
-                parseInt(document.getElementById('v1').value),
-                parseInt(document.getElementById('v2').value),
-                parseInt(document.getElementById('v3').value),
-                parseInt(document.getElementById('v4').value)
-            ];
-            
-            v_actuales.forEach(f => {
-                if (!isNaN(f)) {
-                    let ly = 100 + (f - 1) * h;
+            // Iluminar Filas Seleccionadas
+            ['v1','v2','v3','v4'].forEach(id => {
+                let f = parseInt(document.getElementById('box-' + id).innerText);
+                if(!isNaN(f)) {
                     stroke(255, 235, 59, 150); strokeWeight(4);
-                    line(0, ly, width, ly);
+                    line(0, 100 + (f-1)*h, width, 100 + (f-1)*h);
                 }
             });
 
+            // Dibujar Cristal
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -199,46 +169,29 @@
                 }
                 allRows.push(rowVals);
             }
-            let lastRowData = allRows[rows-1];
+            let lastR = allRows[rows-1];
             for (let r = 1; r < rows; r++) {
-                let nextRow = [];
-                for (let c = 0; c < lastRowData.length - 1; c++) {
-                    let val = wrappedSum(lastRowData[c] + lastRowData[c+1], maxVal);
-                    nextRow.push(val);
-                    drawHex(width/2 + (c - (lastRowData.length-2)/2) * w, 100 + (rows - 1 + r) * h, val, hexSize);
+                let nextR = [];
+                for (let c = 0; c < lastR.length - 1; c++) {
+                    let val = wrappedSum(lastR[c] + lastR[c+1], maxVal);
+                    nextR.push(val);
+                    drawHex(width/2 + (c - (lastR.length-2)/2) * w, 100 + (rows - 1 + r) * h, val, hexSize);
                 }
-                lastRowData = nextRow;
-            }
-
-            for (let i = 1; i <= rows * 2; i++) {
-                if (i === 1 || i % 10 === 0) {
-                    let ly = 100 + (i-1)*h;
-                    stroke(255, 0, 0, 100); strokeWeight(1.5);
-                    line(100, ly, width-100, ly);
-                    noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 40, ly+4);
-                }
+                lastR = nextR;
             }
         }
 
         function drawHex(x, y, v, s) {
-            let m = 1200;
-            if (y < scrollY - m || y > scrollY + windowHeight + m) return;
-            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40);
+            if (y < scrollY - 500 || y > scrollY + windowHeight + 500) return;
+            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 30);
             beginShape();
-            for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a) * s, sin(a) * s); }
+            for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a)*s, sin(a)*s); }
             endShape(CLOSE);
-            if (s > 7) {
-                fill(v > 15 || [2,3,21].includes(v) ? 255 : 0);
-                textAlign(CENTER, CENTER); textSize(s * 0.65); text(v, 0, 0);
-            }
+            if (s > 7) { fill(v > 15 || [2,3,21].includes(v) ? 255 : 0); textAlign(CENTER, CENTER); textSize(s*0.65); text(v, 0, 0); }
             pop();
         }
 
-        function wrappedSum(n, m) {
-            let r = n;
-            while (r > m) r -= m;
-            return r;
-        }
+        function wrappedSum(n, m) { let r = n; while (r > m) r -= m; return r; }
     </script>
 </body>
 </html>
