@@ -2,18 +2,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional Rojo Sangre - vFinal</title>
+    <title>Cristal Dimensional Rojo Sangre - Control Táctil Total</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
         .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 15px; margin: 10px; border: 1px solid #444; }
         .math-panel { background: #151515; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4444; width: 90%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
-        .inputs-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-        input.prog-input { width: 70px; padding: 8px; border-radius: 4px; border: 2px solid transparent; text-align: center; font-weight: bold; background: #eee; color: #000; }
-        input.prog-input:focus { outline: none; border-color: #ffeb3b; background: #fffde7; }
-        .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; }
+        .inputs-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+        
+        .input-group { position: relative; display: flex; align-items: center; background: #eee; border-radius: 4px; padding-right: 5px; }
+        input.prog-input { width: 55px; padding: 8px; border: none; text-align: center; font-weight: bold; background: transparent; color: #000; outline: none; }
+        .kb-icon { cursor: pointer; font-size: 12px; color: #666; padding: 2px; }
+        
+        input.prog-input:focus-within { background: #fffde7; border-radius: 4px; }
+        .active-input { box-shadow: 0 0 10px #ffeb3b; border: 2px solid #ffeb3b !important; }
+
+        .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; margin-top: 10px; }
         #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; line-height: 1.4; }
+        .hint { font-size: 0.75em; color: #888; margin-top: 5px; text-align: center; }
     </style>
 </head>
 <body>
@@ -22,14 +28,13 @@
 
     <div class="math-panel">
         <div class="inputs-row">
-            <span>Secuencia:</span>
-            <input type="number" id="v1" class="prog-input" value="4">
-            <input type="number" id="v2" class="prog-input" value="10">
-            <input type="number" id="v3" class="prog-input" value="28">
-            <input type="number" id="v4" class="prog-input" value="82">
+            <div class="input-group" id="group-v1"><input type="number" id="v1" class="prog-input" value="4" readonly><span class="kb-icon" onclick="enableKB('v1')">⌨️</span></div>
+            <div class="input-group" id="group-v2"><input type="number" id="v2" class="prog-input" value="10" readonly><span class="kb-icon" onclick="enableKB('v2')">⌨️</span></div>
+            <div class="input-group" id="group-v3"><input type="number" id="v3" class="prog-input" value="28" readonly><span class="kb-icon" onclick="enableKB('v3')">⌨️</span></div>
+            <div class="input-group" id="group-v4"><input type="number" id="v4" class="prog-input" value="82" readonly><span class="kb-icon" onclick="enableKB('v4')">⌨️</span></div>
         </div>
-        <p class="hint">PC: Clic normal | Móvil: Mantén 1 seg sin mover para marcar la línea</p>
-        <div class="equation-display" id="equation-text">Analizando cristal...</div>
+        <p class="hint">1. Toca una casilla (amarillo) | 2. Mantén 1s una fila para capturarla.<br>Usa ⌨️ para escribir manualmente.</p>
+        <div class="equation-display" id="equation-text">Analizando...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -47,12 +52,12 @@
         let lastFocusedInput = null;
         let touchTimer;
         let startX, startY;
-        let isMobile = false;
+        let isMobileDevice = false;
 
         function setup() {
-            isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            pixelDensity(2); // Calidad máxima
-
+            isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            pixelDensity(2);
+            
             let ui = select('#ui-main');
             createSpan("Inicio:").parent(ui);
             initialValueInput = createInput('1').parent(ui);
@@ -65,44 +70,57 @@
             maxValueInput.input(updateAll);
             rowsInput.input(updateAll);
 
+            // Setup de selección tactil sin teclado
             ['v1', 'v2', 'v3', 'v4'].forEach(id => {
                 let el = document.getElementById(id);
-                el.addEventListener('focus', (e) => lastFocusedInput = e.target);
-                el.addEventListener('input', analizarProgresion);
+                el.addEventListener('click', function() {
+                    // Quitar clase activa de todos
+                    document.querySelectorAll('.input-group').forEach(g => g.classList.remove('active-input'));
+                    // Activar este
+                    document.getElementById('group-' + id).classList.add('active-input');
+                    lastFocusedInput = el;
+                });
             });
 
-            let canvas = createCanvas(windowWidth - 50, 2000);
+            let canvas = createCanvas(windowWidth - 50, 1000);
             canvas.parent('canvas-container');
 
-            // Eventos Nativa para Móvil
             let canvasElt = canvas.elt;
-            canvasElt.addEventListener('touchstart', (e) => {
-                if (!lastFocusedInput || e.touches.length > 1) return;
-                let t = e.touches[0];
-                startX = t.clientX; startY = t.clientY;
-                touchTimer = setTimeout(() => {
-                    let rect = canvasElt.getBoundingClientRect();
-                    executeSelection(t.clientX - rect.left, t.clientY - rect.top + window.scrollY);
-                    if(window.navigator.vibrate) window.navigator.vibrate(50);
-                }, 1000);
-            }, {passive: true});
-
-            canvasElt.addEventListener('touchmove', (e) => {
-                let t = e.touches[0];
-                if (dist(startX, startY, t.clientX, t.clientY) > 10) clearTimeout(touchTimer);
-            }, {passive: true});
-
+            canvasElt.addEventListener('touchstart', handleTS, {passive: true});
+            canvasElt.addEventListener('touchmove', handleTM, {passive: true});
             canvasElt.addEventListener('touchend', () => clearTimeout(touchTimer));
             
             noLoop();
             updateAll();
         }
 
-        // Clic para PC
+        function enableKB(id) {
+            let el = document.getElementById(id);
+            el.readOnly = false;
+            el.focus();
+            el.addEventListener('blur', () => el.readOnly = true, {once: true});
+        }
+
         function mousePressed() {
-            if (!isMobile && lastFocusedInput) {
+            if (!isMobileDevice && lastFocusedInput && mouseY > 0) {
                 executeSelection(mouseX, mouseY);
             }
+        }
+
+        function handleTS(e) {
+            if (!lastFocusedInput || e.touches.length > 1) return;
+            let t = e.touches[0];
+            startX = t.clientX; startY = t.clientY;
+            touchTimer = setTimeout(() => {
+                let rect = canvas.elt.getBoundingClientRect();
+                executeSelection(t.clientX - rect.left, t.clientY - rect.top);
+                if(window.navigator.vibrate) window.navigator.vibrate(50);
+            }, 1000);
+        }
+
+        function handleTM(e) {
+            let t = e.touches[0];
+            if (dist(startX, startY, t.clientX, t.clientY) > 10) clearTimeout(touchTimer);
         }
 
         function executeSelection(x, y) {
@@ -156,13 +174,13 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // LÍNEAS AMARILLAS DE SELECCIÓN
             let v_actuales = [
                 parseInt(document.getElementById('v1').value),
                 parseInt(document.getElementById('v2').value),
                 parseInt(document.getElementById('v3').value),
                 parseInt(document.getElementById('v4').value)
             ];
+            
             v_actuales.forEach(f => {
                 if (!isNaN(f)) {
                     let ly = 100 + (f - 1) * h;
@@ -171,7 +189,6 @@
                 }
             });
 
-            // CRISTAL
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -193,7 +210,6 @@
                 lastRowData = nextRow;
             }
 
-            // GUÍAS ROJAS
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
@@ -205,8 +221,8 @@
         }
 
         function drawHex(x, y, v, s) {
-            let margin = 1200;
-            if (y < scrollY - margin || y > scrollY + windowHeight + margin) return;
+            let m = 1200;
+            if (y < scrollY - m || y > scrollY + windowHeight + m) return;
             push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40);
             beginShape();
             for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a) * s, sin(a) * s); }
