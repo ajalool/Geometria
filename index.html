@@ -2,18 +2,18 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Rojo Sangre - Selección Inteligente</title>
+    <title>Cristal Dimensional - Selección de Precisión</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 15px; margin: 10px; border: 1px solid #444; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; touch-action: pan-y; }
+        .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 15px; margin: 10px; border: 1px solid #444; }
         .math-panel { background: #151515; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4444; width: 90%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
         .inputs-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-        input.prog-input { width: 70px; padding: 8px; border-radius: 4px; border: 2px solid transparent; text-align: center; font-weight: bold; background: #eee; color: #000; cursor: pointer; }
+        input.prog-input { width: 70px; padding: 8px; border-radius: 4px; border: 2px solid transparent; text-align: center; font-weight: bold; background: #eee; color: #000; }
         input.prog-input:focus { outline: none; border-color: #ffeb3b; background: #fffde7; }
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; }
         #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; }
+        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -28,8 +28,8 @@
             <input type="number" id="v3" class="prog-input" value="28">
             <input type="number" id="v4" class="prog-input" value="82">
         </div>
-        <p class="hint">PC: Clic normal | Celular: Mantén presionado 0.5s para seleccionar</p>
-        <div class="equation-display" id="equation-text">Analizando cristal dimensional...</div>
+        <p class="hint">PC: Clic normal | Celular: Mantén presionado <b>2 seg sin mover</b> para seleccionar fila</p>
+        <div class="equation-display" id="equation-text">Analizando...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -45,12 +45,15 @@
 
         let initialValueInput, maxValueInput, rowsInput;
         let lastFocusedInput = null;
-        let pressTimer;
+        
+        // Variables para control de presión
+        let touchTimer;
+        let touchStartX, touchStartY;
+        let isLongPress = false;
         let isMobile = false;
 
         function setup() {
             isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            
             let ui = select('#ui-main');
             createSpan("Inicio:").parent(ui);
             initialValueInput = createInput('1').parent(ui);
@@ -72,30 +75,40 @@
             let canvas = createCanvas(windowWidth - 50, 2000);
             canvas.parent('canvas-container');
             
-            // Eventos para detectar presión prolongada
-            canvas.mousePressed(handlePressStart);
-            canvas.mouseReleased(handlePressEnd);
-            
             noLoop();
             updateAll();
         }
 
-        function handlePressStart() {
+        // LÓGICA DE DETECCIÓN: Diferencia Clic/Scroll
+        function mousePressed() {
             if (!lastFocusedInput) return;
+            
+            touchStartX = mouseX;
+            touchStartY = mouseY;
+            isLongPress = false;
 
             if (isMobile) {
-                // En celular, esperamos 500ms
-                pressTimer = setTimeout(() => {
+                // Iniciar contador de 2 segundos para celular
+                touchTimer = setTimeout(() => {
+                    isLongPress = true;
                     executeSelection();
-                }, 500);
+                }, 2000); 
             } else {
-                // En PC, ejecución inmediata
+                // PC: selección instantánea
                 executeSelection();
             }
         }
 
-        function handlePressEnd() {
-            clearTimeout(pressTimer);
+        function mouseDragged() {
+            // Si el dedo se mueve más de 10px, asumimos que es SCROLL
+            let distance = dist(touchStartX, touchStartY, mouseX, mouseY);
+            if (distance > 10) {
+                clearTimeout(touchTimer); // Cancela la selección
+            }
+        }
+
+        function mouseReleased() {
+            clearTimeout(touchTimer);
         }
 
         function executeSelection() {
@@ -103,9 +116,8 @@
             let filaDetectada = Math.round((mouseY - 100) / h) + 1;
             if (filaDetectada >= 1 && lastFocusedInput) {
                 lastFocusedInput.value = filaDetectada;
+                if(isMobile && window.navigator.vibrate) window.navigator.vibrate(70); // Vibración de éxito
                 updateAll();
-                // Opcional: Feedback visual o vibración si el navegador lo permite
-                if(isMobile && window.navigator.vibrate) window.navigator.vibrate(50);
             }
         }
 
@@ -129,7 +141,6 @@
 
             let res = document.getElementById('equation-text');
             if (v.length < 2) return;
-
             let d1 = v[1] - v[0];
             let d2 = v.length > 2 ? v[2] - v[1] : d1;
             let r = d1 !== 0 ? d2 / d1 : 0;
@@ -149,26 +160,25 @@
             background(10);
             let rows = parseInt(rowsInput.value()) || 40;
             let maxVal = parseInt(maxValueInput.value()) || 21;
-            let w = Math.sqrt(3) * hexSize;
             let h = hexSize * 1.5;
+            let w = Math.sqrt(3) * hexSize;
 
-            // Iluminar filas seleccionadas
+            // Dibujar líneas amarillas de selección
             let v_actuales = [
                 parseInt(document.getElementById('v1').value),
                 parseInt(document.getElementById('v2').value),
                 parseInt(document.getElementById('v3').value),
                 parseInt(document.getElementById('v4').value)
             ];
-
             v_actuales.forEach(f => {
                 if (!isNaN(f)) {
                     let ly = 100 + (f - 1) * h;
-                    stroke(255, 235, 59, 100);
-                    strokeWeight(3);
+                    stroke(255, 235, 59, 150); strokeWeight(3);
                     line(0, ly, width, ly);
                 }
             });
 
+            // Generar y dibujar cristal
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -179,7 +189,6 @@
                 }
                 allRows.push(rowVals);
             }
-
             let lastRow = allRows[rows-1];
             for (let r = 1; r < rows; r++) {
                 let nextRow = [];
@@ -191,28 +200,23 @@
                 lastRow = nextRow;
             }
 
-            // Guías de Fila Rojas
+            // Guías Rojas
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
-                    stroke(255, 0, 0, 120); strokeWeight(1.5);
-                    line(100, ly, width-100, ly);
-                    noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 50, ly+4);
+                    stroke(255, 0, 0, 100); strokeWeight(1.5);
+                    line(80, ly, width-80, ly);
+                    noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 30, ly+4);
                 }
             }
         }
 
         function drawHex(x, y, v, s) {
-            let margin = 1200;
+            let margin = 1000;
             if (y < scrollY - margin || y > scrollY + windowHeight + margin) return;
-            
-            push(); translate(x, y);
-            fill(colorMap[v] || '#444'); stroke(0, 40);
+            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40);
             beginShape();
-            for (let i = 0; i < 6; i++) {
-                let a = TWO_PI/6 * i - PI/2;
-                vertex(cos(a) * s, sin(a) * s);
-            }
+            for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a) * s, sin(a) * s); }
             endShape(CLOSE);
             if (s > 10) {
                 fill(v > 15 || [2,3,21].includes(v) ? 255 : 0);
