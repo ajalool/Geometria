@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional - Selección Pro</title>
+    <title>Cristal Dimensional - Nitidez Total</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
@@ -13,7 +13,7 @@
         input.prog-input:focus { outline: none; border-color: #ffeb3b; background: #fffde7; }
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; }
         #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; line-height: 1.4; }
+        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; }
     </style>
 </head>
 <body>
@@ -28,8 +28,8 @@
             <input type="number" id="v3" class="prog-input" value="28">
             <input type="number" id="v4" class="prog-input" value="82">
         </div>
-        <p class="hint">PC: Clic normal | Celular: Mantén presionado <b>2 seg sin mover</b> para iluminar y seleccionar</p>
-        <div class="equation-display" id="equation-text">Analizando...</div>
+        <p class="hint">PC: Clic instantáneo | Celular: 1 seg presionado para seleccionar</p>
+        <div class="equation-display" id="equation-text">Analizando cristal...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -45,14 +45,14 @@
 
         let initialValueInput, maxValueInput, rowsInput;
         let lastFocusedInput = null;
-        
-        // Variables de control de tiempo y movimiento
         let touchTimer;
         let startX, startY;
-        let isMobile = false;
+        let isMobileDevice = false;
 
         function setup() {
-            isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            pixelDensity(2); // FUERZA ALTA RESOLUCIÓN (Retina/4K)
+            
             let ui = select('#ui-main');
             createSpan("Inicio:").parent(ui);
             initialValueInput = createInput('1').parent(ui);
@@ -71,56 +71,49 @@
                 el.addEventListener('input', updateAll);
             });
 
-            let canvas = createCanvas(windowWidth - 50, 2000);
+            let canvas = createCanvas(windowWidth - 50, 1000);
             canvas.parent('canvas-container');
 
-            // Listeners nativos para máxima precisión en móvil
-            let canvasElement = canvas.elt;
-            canvasElement.addEventListener('touchstart', handleTouchStart, {passive: false});
-            canvasElement.addEventListener('touchmove', handleTouchMove, {passive: false});
-            canvasElement.addEventListener('touchend', handleTouchEnd);
+            // Eventos Nativa para Móvil
+            let canvasElt = canvas.elt;
+            canvasElt.addEventListener('touchstart', handleTS, {passive: true});
+            canvasElt.addEventListener('touchmove', handleTM, {passive: true});
+            canvasElt.addEventListener('touchend', () => clearTimeout(touchTimer));
             
-            // Para PC sigue funcionando el clic normal
-            canvas.mousePressed(() => { if(!isMobile) executeSelection(); });
-
             noLoop();
             updateAll();
         }
 
-        function handleTouchStart(e) {
-            if (!lastFocusedInput) return;
-            let touch = e.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
-
-            // Iniciar temporizador de 2 segundos
-            touchTimer = setTimeout(() => {
-                executeSelection(touch.clientX, touch.clientY);
-                if(window.navigator.vibrate) window.navigator.vibrate(100); // Feedback táctil
-            }, 2000);
-        }
-
-        function handleTouchMove(e) {
-            let touch = e.touches[0];
-            let moveDist = dist(startX, startY, touch.clientX, touch.clientY);
-            // Si mueve el dedo más de 10px, es un SCROLL, cancelamos selección
-            if (moveDist > 10) {
-                clearTimeout(touchTimer);
+        // Lógica para PC (Clic normal)
+        function mousePressed() {
+            if (!isMobileDevice && lastFocusedInput) {
+                executeSelection(mouseX, mouseY);
             }
         }
 
-        function handleTouchEnd() {
-            clearTimeout(touchTimer);
+        // Lógica para Móvil (1 segundo)
+        function handleTS(e) {
+            if (!lastFocusedInput || e.touches.length > 1) return;
+            let t = e.touches[0];
+            startX = t.clientX; startY = t.clientY;
+            touchTimer = setTimeout(() => {
+                // Convertir coordenadas de pantalla a canvas
+                let rect = canvas.elt.getBoundingClientRect();
+                executeSelection(t.clientX - rect.left, t.clientY - rect.top + window.scrollY);
+                if(window.navigator.vibrate) window.navigator.vibrate(40);
+            }, 1000);
         }
 
-        function executeSelection(customX, customY) {
+        function handleTM(e) {
+            let t = e.touches[0];
+            if (dist(startX, startY, t.clientX, t.clientY) > 10) clearTimeout(touchTimer);
+        }
+
+        function executeSelection(x, y) {
             let h = hexSize * 1.5;
-            // Usar coordenadas de mouse (PC) o las capturadas (Móvil)
-            let yPos = customY ? (customY + window.scrollY - canvas.elt.offsetTop) : mouseY;
-            let filaDetectada = Math.round((yPos - 100) / h) + 1;
-            
-            if (filaDetectada >= 1 && lastFocusedInput) {
-                lastFocusedInput.value = filaDetectada;
+            let fila = Math.round((y - 100) / h) + 1;
+            if (fila >= 1 && lastFocusedInput) {
+                lastFocusedInput.value = fila;
                 updateAll();
             }
         }
@@ -167,7 +160,7 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // ILUMINACIÓN AMARILLA (Línea de selección)
+            // Líneas Amarillas de Selección
             let v_actuales = [
                 parseInt(document.getElementById('v1').value),
                 parseInt(document.getElementById('v2').value),
@@ -177,12 +170,12 @@
             v_actuales.forEach(f => {
                 if (!isNaN(f)) {
                     let ly = 100 + (f - 1) * h;
-                    stroke(255, 235, 59, 180); strokeWeight(4);
+                    stroke(255, 235, 59, 150); strokeWeight(3);
                     line(0, ly, width, ly);
                 }
             });
 
-            // CRISTAL
+            // Cristal
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -204,7 +197,7 @@
                 lastRowData = nextRow;
             }
 
-            // GUÍAS ROJAS
+            // Guías Rojas
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
@@ -216,13 +209,13 @@
         }
 
         function drawHex(x, y, v, s) {
-            let margin = 1000;
-            if (y < scrollY - margin || y > scrollY + windowHeight + margin) return;
-            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40);
+            let m = 1000;
+            if (y < scrollY - m || y > scrollY + windowHeight + m) return;
+            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 50);
             beginShape();
             for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a) * s, sin(a) * s); }
             endShape(CLOSE);
-            if (s > 10) {
+            if (s > 7) {
                 fill(v > 15 || [2,3,21].includes(v) ? 255 : 0);
                 textAlign(CENTER, CENTER); textSize(s * 0.65); text(v, 0, 0);
             }
