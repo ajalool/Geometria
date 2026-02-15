@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional Rojo Sangre - Zoom Fix</title>
+    <title>Cristal Dimensional Rojo Sangre - Resaltado Interactivo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
@@ -28,7 +28,7 @@
             <input type="number" id="v3" class="prog-input" value="28">
             <input type="number" id="v4" class="prog-input" value="82">
         </div>
-        <p class="hint">Clic en casilla + Clic en panal = Auto-llenado</p>
+        <p class="hint">Clic en casilla + Clic en panal = Auto-llenado e Iluminación</p>
         <div class="equation-display" id="equation-text">Analizando cristal...</div>
     </div>
 
@@ -45,7 +45,7 @@
 
         let initialValueInput, maxValueInput, rowsInput;
         let lastFocusedInput = null;
-        let currentEq = { type: 'exp', a: 1, b: 3, c: 1 };
+        let filasSeleccionadas = [];
 
         function setup() {
             let ui = select('#ui-main');
@@ -63,7 +63,7 @@
             ['v1', 'v2', 'v3', 'v4'].forEach(id => {
                 let el = document.getElementById(id);
                 el.addEventListener('focus', (e) => lastFocusedInput = e.target);
-                el.addEventListener('input', analizarProgresion);
+                el.addEventListener('input', updateAll);
             });
 
             let canvas = createCanvas(windowWidth - 50, 2000);
@@ -86,9 +86,16 @@
 
         function updateAll() {
             let rows = parseInt(rowsInput.value()) || 1;
-            // Ajuste dinámico de tamaño para evitar desbordamiento
             hexSize = rows > 60 ? (rows > 150 ? 5 : 8) : 15;
             
+            // Actualizar lista de filas para iluminar
+            filasSeleccionadas = [
+                parseInt(document.getElementById('v1').value),
+                parseInt(document.getElementById('v2').value),
+                parseInt(document.getElementById('v3').value),
+                parseInt(document.getElementById('v4').value)
+            ].filter(n => !isNaN(n));
+
             let h = hexSize * 1.5;
             let totalHeight = (rows * 2 * h) + 400;
             resizeCanvas(width, totalHeight);
@@ -114,12 +121,10 @@
             if (r > 0 && r !== 1 && v.length >= 3) {
                 let a = d1 / (r - 1);
                 let c = v[0] - a;
-                currentEq = { type: 'exp', a, b: r, c };
                 res.innerText = `Ecuación: aₙ = ${r.toFixed(0)}ⁿ + ${c.toFixed(0)}`;
             } else {
                 let d = v[1] - v[0];
                 let c = v[0] - d;
-                currentEq = { type: 'lin', a: d, c };
                 res.innerText = `Ecuación Lineal: aₙ = ${d}n ${c >= 0 ? '+ ':'- '}${Math.abs(c)}`;
             }
         }
@@ -131,9 +136,16 @@
             let w = Math.sqrt(3) * hexSize;
             let h = hexSize * 1.5;
 
+            // Dibujar Iluminación de Filas Seleccionadas (Capa de fondo)
+            filasSeleccionadas.forEach(f => {
+                let ly = 100 + (f - 1) * h;
+                stroke(255, 235, 59, 150); // Amarillo resplandeciente
+                strokeWeight(4);
+                line(0, ly, width, ly);
+                strokeWeight(1);
+            });
+
             let allRows = [];
-            
-            // 1. Expansión (Superior)
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
                 for (let c = 0; c <= r; c++) {
@@ -144,7 +156,6 @@
                 allRows.push(rowVals);
             }
 
-            // 2. Contracción (Inferior)
             let lastRow = allRows[rows-1];
             for (let r = 1; r < rows; r++) {
                 let nextRow = [];
@@ -156,7 +167,7 @@
                 lastRow = nextRow;
             }
 
-            // Guías de Fila
+            // Guías de Fila Rojas (Capa superior)
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
@@ -167,8 +178,7 @@
         }
 
         function drawHex(x, y, v, s) {
-            // OPTIMIZACIÓN CORREGIDA: Margen de seguridad aumentado para el zoom
-            let margin = 1000; // Dibujamos 1000px antes y después de lo visible
+            let margin = 1000;
             if (y < scrollY - margin || y > scrollY + windowHeight + margin) return;
             
             push(); translate(x, y);
