@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Geometría Perfecta</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <style>
+        body { 
+            font-family: sans-serif; margin: 0; padding: 20px;
+            background-color: #1a1a1a; color: white;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .controls {
+            background: #333; padding: 15px; border-radius: 8px;
+            position: sticky; top: 10px; z-index: 100;
+            display: flex; gap: 15px; margin-bottom: 20px;
+        }
+        input { width: 50px; padding: 5px; border-radius: 4px; border: none; }
+        canvas { background: #fff; }
+    </style>
+</head>
+<body>
+    <div class="controls" id="ui-area"></div>
+    <script>
+        let hexSize = 16; 
+        let values = [];
+        let colorMap;
+        let initialValueInput, maxValueInput, rowsInput;
+
+        function setup() {
+            let ui = select('#ui-area');
+            createSpan("Inicio: ").parent(ui);
+            initialValueInput = createInput('1').parent(ui);
+            initialValueInput.input(() => redraw());
+            
+            createSpan("Máx: ").parent(ui);
+            maxValueInput = createInput('21').parent(ui);
+            maxValueInput.input(() => redraw());
+            
+            createSpan("Filas: ").parent(ui);
+            rowsInput = createInput('40').parent(ui);
+            rowsInput.input(() => redraw());
+
+            colorMap = {
+                1: '#FFB6C1', 2: '#9370DB', 3: '#FF4500', 4: '#FFA500', 5: '#32CD32',
+                6: '#1E90FF', 7: '#ADFF2F', 8: '#DDA0DD', 9: '#FFFF00', 10: '#00FFFF',
+                11: '#FF69B4', 12: '#8B4513', 13: '#7FFFD4', 14: '#FFD700', 15: '#4B0082',
+                16: '#00FF7F', 17: '#F08080', 18: '#4682B4', 19: '#E6E6FA', 20: '#808000', 21: '#000080'
+            };
+
+            createCanvas(windowWidth, 1000);
+            noLoop();
+        }
+
+        function draw() {
+            background(255);
+            values = [];
+            
+            let startVal = parseInt(initialValueInput.value()) || 1;
+            let maxVal = parseInt(maxValueInput.value()) || 21;
+            let currentRows = parseInt(rowsInput.value()) || 30;
+
+            // MATEMÁTICA PARA HEXÁGONOS "PUNTA HACIA ARRIBA"
+            let h = hexSize * 2;             // Altura total
+            let w = Math.sqrt(3) * hexSize;  // Ancho total
+            let xSpacing = w;                // Distancia horizontal entre centros
+            let ySpacing = h * 0.75;         // Distancia vertical (solapamiento geométrico)
+
+            let totalHeight = (currentRows * 2 * ySpacing) + 200;
+            resizeCanvas(windowWidth, totalHeight);
+
+            let lastRowX0, lastRowY;
+
+            // PARTE SUPERIOR (Triángulo)
+            for (let row = 0; row < currentRows; row++) {
+                let rowValues = [];
+                for (let col = 0; col <= row; col++) {
+                    let val = (row === 0 || col === 0 || col === row) ? 
+                              startVal : 
+                              wrappedSum(values[row - 1][col - 1] + values[row - 1][col], maxVal);
+                    rowValues.push(val);
+
+                    // Centrado dinámico
+                    let x = width / 2 + (col - row / 2) * xSpacing;
+                    let y = 100 + row * ySpacing;
+
+                    if (row === currentRows - 1 && col === 0) { lastRowX0 = x; lastRowY = y; }
+                    drawHexagon(x, y, hexSize, colorMap[val] || '#ccc', val);
+                }
+                values.push(rowValues);
+            }
+
+            // PARTE INFERIOR (Cierre de la figura)
+            let previousRow = values[values.length - 1];
+            for (let row = 1; row < currentRows; row++) {
+                let rowValues = [];
+                for (let col = 0; col < previousRow.length - 1; col++) {
+                    let val = wrappedSum(previousRow[col] + previousRow[col + 1], maxVal);
+                    rowValues.push(val);
+
+                    let x = lastRowX0 + col * xSpacing + row * (xSpacing / 2);
+                    let y = lastRowY + row * ySpacing;
+
+                    drawHexagon(x, y, hexSize, colorMap[val] || '#ccc', val);
+                }
+                previousRow = rowValues;
+            }
+        }
+
+        function drawHexagon(x, y, s, c, val) {
+            push();
+            translate(x, y);
+            rotate(PI / 2); // Orientación punta hacia arriba
+            stroke(0, 40); 
+            fill(c);
+            beginShape();
+            for (let i = 0; i < 6; i++) {
+                let angle = TWO_PI / 6 * i;
+                vertex(cos(angle) * s, sin(angle) * s);
+            }
+            endShape(CLOSE);
+            
+            rotate(-PI / 2); // Regresamos rotación para el texto
+            fill(0);
+            noStroke();
+            textSize(s * 0.7);
+            textAlign(CENTER, CENTER);
+            text(val, 0, 0);
+            pop();
+        }
+
+        function wrappedSum(n, max) {
+            while (n > max) { n -= max; }
+            return n;
+        }
+    </script>
+</body>
+</html>
