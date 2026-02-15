@@ -2,56 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>Cristal Dimensional Rojo Sangre - Universal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.1, maximum-scale=5.0, user-scalable=yes">
+    <title>Cristal Dimensional Rojo Sangre - vMaster</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; }
         
-        /* Controles superiores */
         .main-controls { 
             background: #222; padding: 10px; position: sticky; top: 0; z-index: 100; 
             display: flex; gap: 8px; width: 100%; justify-content: center; border-bottom: 1px solid #444;
             flex-wrap: wrap; box-shadow: 0 2px 15px rgba(0,0,0,0.9);
         }
-        .main-controls span { font-size: 0.8em; align-self: center; color: #ccc; }
-        .main-controls input { width: 45px; padding: 5px; border-radius: 4px; border: 1px solid #555; background: #111; color: white; text-align: center; font-size: 14px; }
+        .main-controls input { width: 45px; padding: 5px; border-radius: 4px; border: 1px solid #555; background: #111; color: white; text-align: center; }
 
-        .math-panel { 
-            background: #151515; padding: 15px 5px; border-bottom: 2px solid #ff4444; 
-            width: 100%; display: flex; flex-direction: column; align-items: center; 
-        }
+        .math-panel { background: #151515; padding: 15px 5px; border-bottom: 2px solid #ff4444; width: 100%; display: flex; flex-direction: column; align-items: center; }
         
-        /* Contenedor de la secuencia - Ajustado para móvil */
-        .inputs-row { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); /* 2 columnas en móvil */
-            gap: 10px; 
-            width: 95%;
-            max-width: 500px;
-        }
-
-        /* En PC volvemos a 4 columnas */
-        @media (min-width: 600px) {
-            .inputs-row { grid-template-columns: repeat(4, 1fr); }
-        }
+        .inputs-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 95%; max-width: 500px; }
+        @media (min-width: 600px) { .inputs-row { grid-template-columns: repeat(4, 1fr); } }
         
-        .box-container { 
-            display: flex; flex-direction: column; align-items: center; gap: 4px; 
-            background: #2a2a2a; padding: 8px; border-radius: 8px; border: 2px solid #444; 
-        }
+        .box-container { display: flex; flex-direction: column; align-items: center; gap: 4px; background: #2a2a2a; padding: 8px; border-radius: 8px; border: 2px solid #444; }
         .box-container.active { border-color: #ffeb3b; background: #3d3500; box-shadow: 0 0 12px #ffeb3b; }
         
-        .val-btn { width: 100%; height: 35px; background: #eee; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 4px; font-size: 16px; }
-        .action-row { display: flex; gap: 5px; width: 100%; margin-top: 4px; }
-        .mini-btn { 
-            flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; 
-            font-size: 18px; background: #444; border-radius: 4px; cursor: pointer; border: 1px solid #666; 
-        }
+        .val-btn { width: 100%; height: 35px; background: #eee; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 4px; }
+        .mini-btn { flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 18px; background: #444; border-radius: 4px; cursor: pointer; border: 1px solid #666; }
 
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; margin-top: 15px; text-align: center; }
-        #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.75em; color: #888; text-align: center; margin-top: 8px; padding: 0 10px; }
+        #canvas-container { width: 100%; display: flex; justify-content: center; background: #0a0a0a; }
+        .hint { font-size: 0.75em; color: #888; text-align: center; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -60,37 +37,13 @@
 
     <div class="math-panel">
         <div class="inputs-row">
-            <div class="box-container" id="cont-v1">
-                <div class="val-btn" id="num-v1">4</div>
-                <div class="action-row">
-                    <div class="mini-btn" title="Elegir en cristal" onclick="setMode('v1', 'touch')">☝️</div>
-                    <div class="mini-btn" title="Escribir número" onclick="setMode('v1', 'kb')">⌨️</div>
-                </div>
-            </div>
-            <div class="box-container" id="cont-v2">
-                <div class="val-btn" id="num-v2">10</div>
-                <div class="action-row">
-                    <div class="mini-btn" onclick="setMode('v2', 'touch')">☝️</div>
-                    <div class="mini-btn" onclick="setMode('v2', 'kb')">⌨️</div>
-                </div>
-            </div>
-            <div class="box-container" id="cont-v3">
-                <div class="val-btn" id="num-v3">28</div>
-                <div class="action-row">
-                    <div class="mini-btn" onclick="setMode('v3', 'touch')">☝️</div>
-                    <div class="mini-btn" onclick="setMode('v3', 'kb')">⌨️</div>
-                </div>
-            </div>
-            <div class="box-container" id="cont-v4">
-                <div class="val-btn" id="num-v4">82</div>
-                <div class="action-row">
-                    <div class="mini-btn" onclick="setMode('v4', 'touch')">☝️</div>
-                    <div class="mini-btn" onclick="setMode('v4', 'kb')">⌨️</div>
-                </div>
-            </div>
+            <div class="box-container" id="cont-v1"><div class="val-btn" id="num-v1">4</div><div style="display:flex;gap:4px;width:100%"><div class="mini-btn" onclick="setMode('v1', 'touch')">☝️</div><div class="mini-btn" onclick="setMode('v1', 'kb')">⌨️</div></div></div>
+            <div class="box-container" id="cont-v2"><div class="val-btn" id="num-v2">10</div><div style="display:flex;gap:4px;width:100%"><div class="mini-btn" onclick="setMode('v2', 'touch')">☝️</div><div class="mini-btn" onclick="setMode('v2', 'kb')">⌨️</div></div></div>
+            <div class="box-container" id="cont-v3"><div class="val-btn" id="num-v3">28</div><div style="display:flex;gap:4px;width:100%"><div class="mini-btn" onclick="setMode('v3', 'touch')">☝️</div><div class="mini-btn" onclick="setMode('v3', 'kb')">⌨️</div></div></div>
+            <div class="box-container" id="cont-v4"><div class="val-btn" id="num-v4">82</div><div style="display:flex;gap:4px;width:100%"><div class="mini-btn" onclick="setMode('v4', 'touch')">☝️</div><div class="mini-btn" onclick="setMode('v4', 'kb')">⌨️</div></div></div>
         </div>
-        <p class="hint">Usa ☝️ para capturar una fila tocando el cristal.<br>Usa ⌨️ para entrada manual.</p>
-        <div class="equation-display" id="equation-text">Ecuación: aₙ = 3ⁿ + 1</div>
+        <p class="hint">☝️ Activa y toca una fila para capturar | Pellizca para Zoom</p>
+        <div class="equation-display" id="equation-text">Analizando...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -101,6 +54,10 @@
 
         let startInp, maxInp, rowsInp;
         let activeId = null;
+        
+        // Control de desplazamiento
+        let startTouchY = 0;
+        let isScrolling = false;
 
         function setMode(id, type) {
             document.querySelectorAll('.box-container').forEach(c => c.classList.remove('active'));
@@ -109,58 +66,68 @@
                 document.getElementById('cont-' + id).classList.add('active');
                 activeId = id;
             } else {
-                let currentVal = document.getElementById('num-' + id).innerText;
-                let newVal = prompt("Ingresa el número de fila:", currentVal);
-                if (newVal !== null && newVal !== "") {
-                    document.getElementById('num-' + id).innerText = newVal;
-                    updateAll();
-                }
+                let newVal = prompt("Fila manual:", document.getElementById('num-' + id).innerText);
+                if (newVal) { document.getElementById('num-' + id).innerText = newVal; updateData(); }
             }
         }
 
         function setup() {
             pixelDensity(2);
             let ui = select('#ui-main');
-            createSpan("Inic:").parent(ui);
-            startInp = createInput('1').parent(ui).input(updateAll);
-            createSpan("Max:").parent(ui);
-            maxInp = createInput('21').parent(ui).input(updateData); // Referencia a updateData corregida abajo
-            createSpan("Filas:").parent(ui);
-            rowsInp = createInput('40').parent(ui).input(updateAll);
+            startInp = createInput('1').parent(ui).input(updateData);
+            maxInp = createInput('21').parent(ui).input(updateData);
+            rowsInp = createInput('40').parent(ui).input(updateData);
 
             let canvas = createCanvas(windowWidth, 1000);
             canvas.parent('canvas-container');
+            
+            // Eventos para diferenciar click de scroll
+            canvas.elt.addEventListener('touchstart', (e) => {
+                startTouchY = e.touches[0].clientY;
+                isScrolling = false;
+            }, {passive: true});
+
+            canvas.elt.addEventListener('touchmove', (e) => {
+                if (Math.abs(e.touches[0].clientY - startTouchY) > 10) isScrolling = true;
+            }, {passive: true});
+
+            canvas.elt.addEventListener('touchend', (e) => {
+                if (!isScrolling && activeId) {
+                    let rect = canvas.elt.getBoundingClientRect();
+                    let yPos = e.changedTouches[0].clientY - rect.top;
+                    executeSelection(yPos);
+                }
+            }, {passive: true});
+
             noLoop();
-            updateAll();
+            updateData();
         }
 
+        // Para PC
         function mousePressed() {
-            if (activeId && mouseY > 0) {
-                let h = hexSize * 1.5;
-                let fila = Math.round((mouseY - 100) / h) + 1;
-                if (fila >= 1) {
-                    document.getElementById('num-' + activeId).innerText = fila;
-                    document.getElementById('cont-' + activeId).classList.remove('active');
-                    activeId = null;
-                    updateAll();
-                    if(navigator.vibrate) navigator.vibrate(40);
-                }
+            if (activeId && !window.navigator.userAgent.includes("Android") && !window.navigator.userAgent.includes("iPhone")) {
+                executeSelection(mouseY);
             }
         }
 
-        function updateAll() {
-            let r_count = parseInt(rowsInp.value()) || 1;
-            // Ajuste de tamaño dinámico
-            hexSize = r_count > 60 ? (r_count > 150 ? 5 : 8) : 15;
+        function executeSelection(y) {
+            let h = hexSize * 1.5;
+            let fila = Math.round((y - 100) / h) + 1;
+            if (fila >= 1 && activeId) {
+                document.getElementById('num-' + activeId).innerText = fila;
+                document.getElementById('cont-' + activeId).classList.remove('active');
+                activeId = null;
+                updateData();
+                if(navigator.vibrate) navigator.vibrate(40);
+            }
+        }
+
+        function updateData() {
+            let r = parseInt(rowsInp.value()) || 1;
+            hexSize = r > 60 ? (r > 150 ? 5 : 8) : 15;
+            resizeCanvas(windowWidth, (r * 2 * hexSize * 1.5) + 400);
             
-            let totalH = (r_count * 2 * hexSize * 1.5) + 400;
-            resizeCanvas(windowWidth, totalH);
-            
-            // Analizar ecuación
-            let v = ['v1','v2','v3','v4'].map(id => 
-                parseFloat(document.getElementById('num-'+id).innerText)
-            ).filter(n => !isNaN(n));
-            
+            let v = ['v1','v2','v3','v4'].map(id => parseFloat(document.getElementById('num-'+id).innerText)).filter(n => !isNaN(n));
             let res = document.getElementById('equation-text');
             if (v.length >= 2) {
                 let d1 = v[1]-v[0], d2 = v.length>2?v[2]-v[1]:d1, ratio = d1!==0?d2/d1:0;
@@ -173,8 +140,6 @@
             redraw();
         }
 
-        function updateData() { updateAll(); } // Alias para compatibilidad
-
         function draw() {
             background(10);
             let r_count = parseInt(rowsInp.value()) || 40;
@@ -182,7 +147,7 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // Dibujar líneas amarillas (Capas de selección)
+            // Líneas amarillas
             ['v1','v2','v3','v4'].forEach(id => {
                 let f = parseInt(document.getElementById('num-' + id).innerText);
                 if(!isNaN(f)) {
@@ -191,7 +156,6 @@
                 }
             });
 
-            // Generar y dibujar cristal
             let grid = [];
             for (let r = 0; r < r_count; r++) {
                 let row = [];
@@ -213,11 +177,10 @@
                 lastR = nextR;
             }
 
-            // Guías rojas
             for (let i = 1; i <= r_count * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
-                    stroke(255, 0, 0, 120); strokeWeight(1.5);
+                    stroke(255, 0, 0, 100); strokeWeight(1.5);
                     line(50, ly, width-50, ly);
                     noStroke(); fill(255, 100, 100); textSize(12); text("Fila "+i, 10, ly+4);
                 }
