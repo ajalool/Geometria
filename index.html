@@ -2,34 +2,60 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional - Conexión Total</title>
+    <title>Cristal Dimensional Rojo Sangre - Control Total</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 15px; margin: 10px; border: 1px solid #444; }
+        .main-controls { background: #222; padding: 12px; border-radius: 8px; position: sticky; top: 10px; z-index: 100; display: flex; gap: 10px; margin: 10px; border: 1px solid #444; flex-wrap: wrap; justify-content: center; }
         .math-panel { background: #151515; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff4444; width: 90%; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 20px rgba(255, 68, 68, 0.2); }
-        .inputs-row { display: flex; gap: 8px; align-items: center; justify-content: center; }
         
-        /* Contenedor del input */
-        .input-box { width: 60px; height: 40px; background: #eee; color: #000; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 2px solid transparent; }
-        .input-box.active { border-color: #ffeb3b; background: #fffde7; box-shadow: 0 0 15px #ffeb3b; }
+        .inputs-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
         
-        .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; margin-top: 10px; }
-        #canvas-container { width: 100%; display: flex; justify-content: center; touch-action: none; } /* touch-action none es clave */
-        .hint { font-size: 0.75em; color: #888; text-align: center; margin-top: 5px; }
+        /* Contenedor híbrido: Número + Icono Teclado */
+        .input-wrapper { display: flex; align-items: center; background: #eee; border-radius: 4px; border: 2px solid transparent; transition: 0.3s; }
+        .input-wrapper.active { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; background: #fffde7; }
+        
+        .num-display { width: 45px; height: 35px; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border-right: 1px solid #ccc; }
+        .kb-trigger { padding: 0 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; height: 35px; }
+        
+        /* Input invisible para activar teclado real */
+        .hidden-input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+
+        .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; margin-top: 10px; text-align: center; }
+        #canvas-container { width: 100%; display: flex; justify-content: center; }
+        .hint { font-size: 0.7em; color: #888; text-align: center; margin-top: 5px; }
     </style>
 </head>
-<body oncontextmenu="return false;"> <div class="main-controls" id="ui-main"></div>
+<body oncontextmenu="return false;">
+
+    <div class="main-controls" id="ui-main"></div>
 
     <div class="math-panel">
         <div class="inputs-row">
-            <div id="box-v1" class="input-box" onclick="selectBox('v1')">4</div>
-            <div id="box-v2" class="input-box" onclick="selectBox('v2')">10</div>
-            <div id="box-v3" class="input-box" onclick="selectBox('v3')">28</div>
-            <div id="box-v4" class="input-box" onclick="selectBox('v4')">82</div>
+            <div class="input-wrapper" id="wrap-v1">
+                <div class="num-display" onclick="activateCapture('v1')">4</div>
+                <div class="kb-trigger" onclick="openKeyboard('v1')">⌨️</div>
+            </div>
+            <div class="input-wrapper" id="wrap-v2">
+                <div class="num-display" onclick="activateCapture('v2')">10</div>
+                <div class="kb-trigger" onclick="openKeyboard('v2')">⌨️</div>
+            </div>
+            <div class="input-wrapper" id="wrap-v3">
+                <div class="num-display" onclick="activateCapture('v3')">28</div>
+                <div class="kb-trigger" onclick="openKeyboard('v3')">⌨️</div>
+            </div>
+            <div class="input-wrapper" id="wrap-v4">
+                <div class="num-display" onclick="activateCapture('v4')">82</div>
+                <div class="kb-trigger" onclick="openKeyboard('v4')">⌨️</div>
+            </div>
         </div>
-        <p class="hint">1. Toca un cuadro arriba (se pondrá amarillo) | 2. Deja el dedo 1s en una fila.</p>
-        <div class="equation-display" id="equation-text">Analizando...</div>
+        <input type="number" id="real-v1" class="hidden-input" oninput="syncManual('v1')">
+        <input type="number" id="real-v2" class="hidden-input" oninput="syncManual('v2')">
+        <input type="number" id="real-v3" class="hidden-input" oninput="syncManual('v3')">
+        <input type="number" id="real-v4" class="hidden-input" oninput="syncManual('v4')">
+
+        <p class="hint">Toca el número para elegir en el cristal | Toca ⌨️ para escribir</p>
+        <div class="equation-display" id="equation-text">Analizando cristal...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -39,14 +65,30 @@
         let colorMap = { 1: '#FFB6C1', 2: '#9370DB', 3: '#FF4500', 4: '#FFA500', 5: '#32CD32', 6: '#1E90FF', 7: '#ADFF2F', 8: '#DDA0DD', 9: '#FFFF00', 10: '#00FFFF', 11: '#FF69B4', 12: '#8B4513', 13: '#7FFFD4', 14: '#FFD700', 15: '#4B0082', 16: '#00FF7F', 17: '#F08080', 18: '#4682B4', 19: '#E6E6FA', 20: '#808000', 21: '#000080' };
 
         let initialValueInput, maxValueInput, rowsInput;
-        let activeTarget = null;
-        let pressTimer;
+        let activeTargetId = null;
+        let touchTimer;
         let startX, startY;
 
-        function selectBox(id) {
-            document.querySelectorAll('.input-box').forEach(b => b.classList.remove('active'));
-            document.getElementById('box-' + id).classList.add('active');
-            activeTarget = id;
+        // 1. Activar modo captura (Sin teclado)
+        function activateCapture(id) {
+            document.querySelectorAll('.input-wrapper').forEach(w => w.classList.remove('active'));
+            document.getElementById('wrap-' + id).classList.add('active');
+            activeTargetId = id;
+        }
+
+        // 2. Abrir teclado real
+        function openKeyboard(id) {
+            activateCapture(id);
+            let realInput = document.getElementById('real-' + id);
+            realInput.value = document.querySelector(`#wrap-${id} .num-display`).innerText;
+            realInput.focus();
+        }
+
+        // 3. Sincronizar escritura manual
+        function syncManual(id) {
+            let val = document.getElementById('real-' + id).value;
+            document.querySelector(`#wrap-${id} .num-display`).innerText = val;
+            updateAll();
         }
 
         function setup() {
@@ -66,46 +108,33 @@
             let canvas = createCanvas(windowWidth - 40, 1000);
             canvas.parent('canvas-container');
 
-            // EVENTOS NATIVOS (Ignoran las limitaciones de p5.js)
             let el = canvas.elt;
-            el.addEventListener('touchstart', startPress, {passive: false});
-            el.addEventListener('touchmove', movePress, {passive: false});
-            el.addEventListener('touchend', endPress);
-            el.addEventListener('mousedown', (e) => { if(activeTarget) executeSelection(e.offsetY); });
+            el.addEventListener('touchstart', (e) => {
+                if (!activeTargetId || e.touches.length > 1) return;
+                let t = e.touches[0];
+                startX = t.clientX; startY = t.clientY;
+                touchTimer = setTimeout(() => {
+                    let rect = el.getBoundingClientRect();
+                    executeSelection(t.clientY - rect.top);
+                    if(navigator.vibrate) navigator.vibrate(50);
+                }, 1000); // 1 segundo de presión
+            }, {passive: false});
+
+            el.addEventListener('touchmove', (e) => {
+                if (dist(startX, startY, e.touches[0].clientX, e.touches[0].clientY) > 10) clearTimeout(touchTimer);
+            }, {passive: true});
+
+            el.addEventListener('touchend', () => clearTimeout(touchTimer));
+            el.addEventListener('mousedown', (e) => { if(activeTargetId) executeSelection(e.offsetY); });
 
             updateAll();
-        }
-
-        function startPress(e) {
-            if (!activeTarget) return;
-            let t = e.touches[0];
-            startX = t.clientX; startY = t.clientY;
-            
-            // Si el dedo se queda quieto 1 segundo
-            pressTimer = setTimeout(() => {
-                let rect = canvas.elt.getBoundingClientRect();
-                let yOnCanvas = t.clientY - rect.top;
-                executeSelection(yOnCanvas);
-                if(navigator.vibrate) navigator.vibrate(50);
-            }, 1000);
-        }
-
-        function movePress(e) {
-            let t = e.touches[0];
-            if (dist(startX, startY, t.clientX, t.clientY) > 10) {
-                clearTimeout(pressTimer); // Es un scroll, cancelar seleccion
-            }
-        }
-
-        function endPress() {
-            clearTimeout(pressTimer);
         }
 
         function executeSelection(y) {
             let h = hexSize * 1.5;
             let fila = Math.round((y - 100) / h) + 1;
-            if (fila >= 1 && activeTarget) {
-                document.getElementById('box-' + activeTarget).innerText = fila;
+            if (fila >= 1 && activeTargetId) {
+                document.querySelector(`#wrap-${activeTargetId} .num-display`).innerText = fila;
                 updateAll();
             }
         }
@@ -119,12 +148,9 @@
         }
 
         function analizarProgresion() {
-            let v = [
-                parseFloat(document.getElementById('box-v1').innerText),
-                parseFloat(document.getElementById('box-v2').innerText),
-                parseFloat(document.getElementById('box-v3').innerText),
-                parseFloat(document.getElementById('box-v4').innerText)
-            ].filter(n => !isNaN(n));
+            let v = ['v1','v2','v3','v4'].map(id => 
+                parseFloat(document.querySelector(`#wrap-${id} .num-display`).innerText)
+            ).filter(n => !isNaN(n));
 
             let res = document.getElementById('equation-text');
             if (v.length < 2) return;
@@ -149,16 +175,16 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // Iluminar Filas Seleccionadas
+            // Iluminar selección
             ['v1','v2','v3','v4'].forEach(id => {
-                let f = parseInt(document.getElementById('box-' + id).innerText);
+                let f = parseInt(document.querySelector(`#wrap-${id} .num-display`).innerText);
                 if(!isNaN(f)) {
                     stroke(255, 235, 59, 150); strokeWeight(4);
                     line(0, 100 + (f-1)*h, width, 100 + (f-1)*h);
                 }
             });
 
-            // Dibujar Cristal
+            // Cristal
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -178,6 +204,16 @@
                     drawHex(width/2 + (c - (lastR.length-2)/2) * w, 100 + (rows - 1 + r) * h, val, hexSize);
                 }
                 lastR = nextR;
+            }
+
+            // Guías rojas
+            for (let i = 1; i <= rows * 2; i++) {
+                if (i === 1 || i % 10 === 0) {
+                    let ly = 100 + (i-1)*h;
+                    stroke(255, 0, 0, 100); strokeWeight(1.5);
+                    line(100, ly, width-100, ly);
+                    noStroke(); fill(255, 100, 100); text("Fila "+i, 40, ly+4);
+                }
             }
         }
 
