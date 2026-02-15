@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cristal Dimensional - Nitidez Total</title>
+    <title>Cristal Dimensional Rojo Sangre - vFinal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #0a0a0a; color: white; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
@@ -13,7 +13,7 @@
         input.prog-input:focus { outline: none; border-color: #ffeb3b; background: #fffde7; }
         .equation-display { font-family: 'Courier New', monospace; color: #ff4444; font-weight: bold; font-size: 1.2em; }
         #canvas-container { width: 100%; display: flex; justify-content: center; }
-        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; }
+        .hint { font-size: 0.8em; color: #888; margin-top: -5px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -28,7 +28,7 @@
             <input type="number" id="v3" class="prog-input" value="28">
             <input type="number" id="v4" class="prog-input" value="82">
         </div>
-        <p class="hint">PC: Clic instantáneo | Celular: 1 seg presionado para seleccionar</p>
+        <p class="hint">PC: Clic normal | Móvil: Mantén 1 seg sin mover para marcar la línea</p>
         <div class="equation-display" id="equation-text">Analizando cristal...</div>
     </div>
 
@@ -47,12 +47,12 @@
         let lastFocusedInput = null;
         let touchTimer;
         let startX, startY;
-        let isMobileDevice = false;
+        let isMobile = false;
 
         function setup() {
-            isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            pixelDensity(2); // FUERZA ALTA RESOLUCIÓN (Retina/4K)
-            
+            isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            pixelDensity(2); // Calidad máxima
+
             let ui = select('#ui-main');
             createSpan("Inicio:").parent(ui);
             initialValueInput = createInput('1').parent(ui);
@@ -68,45 +68,41 @@
             ['v1', 'v2', 'v3', 'v4'].forEach(id => {
                 let el = document.getElementById(id);
                 el.addEventListener('focus', (e) => lastFocusedInput = e.target);
-                el.addEventListener('input', updateAll);
+                el.addEventListener('input', analizarProgresion);
             });
 
-            let canvas = createCanvas(windowWidth - 50, 1000);
+            let canvas = createCanvas(windowWidth - 50, 2000);
             canvas.parent('canvas-container');
 
             // Eventos Nativa para Móvil
             let canvasElt = canvas.elt;
-            canvasElt.addEventListener('touchstart', handleTS, {passive: true});
-            canvasElt.addEventListener('touchmove', handleTM, {passive: true});
+            canvasElt.addEventListener('touchstart', (e) => {
+                if (!lastFocusedInput || e.touches.length > 1) return;
+                let t = e.touches[0];
+                startX = t.clientX; startY = t.clientY;
+                touchTimer = setTimeout(() => {
+                    let rect = canvasElt.getBoundingClientRect();
+                    executeSelection(t.clientX - rect.left, t.clientY - rect.top + window.scrollY);
+                    if(window.navigator.vibrate) window.navigator.vibrate(50);
+                }, 1000);
+            }, {passive: true});
+
+            canvasElt.addEventListener('touchmove', (e) => {
+                let t = e.touches[0];
+                if (dist(startX, startY, t.clientX, t.clientY) > 10) clearTimeout(touchTimer);
+            }, {passive: true});
+
             canvasElt.addEventListener('touchend', () => clearTimeout(touchTimer));
             
             noLoop();
             updateAll();
         }
 
-        // Lógica para PC (Clic normal)
+        // Clic para PC
         function mousePressed() {
-            if (!isMobileDevice && lastFocusedInput) {
+            if (!isMobile && lastFocusedInput) {
                 executeSelection(mouseX, mouseY);
             }
-        }
-
-        // Lógica para Móvil (1 segundo)
-        function handleTS(e) {
-            if (!lastFocusedInput || e.touches.length > 1) return;
-            let t = e.touches[0];
-            startX = t.clientX; startY = t.clientY;
-            touchTimer = setTimeout(() => {
-                // Convertir coordenadas de pantalla a canvas
-                let rect = canvas.elt.getBoundingClientRect();
-                executeSelection(t.clientX - rect.left, t.clientY - rect.top + window.scrollY);
-                if(window.navigator.vibrate) window.navigator.vibrate(40);
-            }, 1000);
-        }
-
-        function handleTM(e) {
-            let t = e.touches[0];
-            if (dist(startX, startY, t.clientX, t.clientY) > 10) clearTimeout(touchTimer);
         }
 
         function executeSelection(x, y) {
@@ -160,7 +156,7 @@
             let h = hexSize * 1.5;
             let w = Math.sqrt(3) * hexSize;
 
-            // Líneas Amarillas de Selección
+            // LÍNEAS AMARILLAS DE SELECCIÓN
             let v_actuales = [
                 parseInt(document.getElementById('v1').value),
                 parseInt(document.getElementById('v2').value),
@@ -170,12 +166,12 @@
             v_actuales.forEach(f => {
                 if (!isNaN(f)) {
                     let ly = 100 + (f - 1) * h;
-                    stroke(255, 235, 59, 150); strokeWeight(3);
+                    stroke(255, 235, 59, 150); strokeWeight(4);
                     line(0, ly, width, ly);
                 }
             });
 
-            // Cristal
+            // CRISTAL
             let allRows = [];
             for (let r = 0; r < rows; r++) {
                 let rowVals = [];
@@ -197,7 +193,7 @@
                 lastRowData = nextRow;
             }
 
-            // Guías Rojas
+            // GUÍAS ROJAS
             for (let i = 1; i <= rows * 2; i++) {
                 if (i === 1 || i % 10 === 0) {
                     let ly = 100 + (i-1)*h;
@@ -209,9 +205,9 @@
         }
 
         function drawHex(x, y, v, s) {
-            let m = 1000;
-            if (y < scrollY - m || y > scrollY + windowHeight + m) return;
-            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 50);
+            let margin = 1200;
+            if (y < scrollY - margin || y > scrollY + windowHeight + margin) return;
+            push(); translate(x, y); fill(colorMap[v] || '#444'); stroke(0, 40);
             beginShape();
             for (let i = 0; i < 6; i++) { let a = TWO_PI/6 * i - PI/2; vertex(cos(a) * s, sin(a) * s); }
             endShape(CLOSE);
